@@ -1,0 +1,5 @@
+1.0-alpha1:
+  Name: "1.0 Alpha 1"
+  PreRelease: true
+  DownloadURL: "https://github.com/Qboi123/QBubbles/archive/1.0-alpha1.zip"
+  RequirementsFile: "requirements.txt"
