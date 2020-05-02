@@ -10,18 +10,12 @@ if __name__ == '__main__':
     compiler = Compiler(
         exclude=[".idea", ".gitattributes", ".gitignore", "build.py", "README.md",
                  "obj", "icon.png", ".git", "compiler.py", "dll", "game", "downloads", "out.png", "account.json",
-                 "launcher_profiles.json", "args.txt"],
+                 "launcher_profiles.json", "args.txt", "src", "icons", "requirements.txt"],
         icon=None, main_folder=os.getcwd(), main_file="main.py",
         hidden_imports=["os", "tkinter", "tkinter.tix", "_tkinter", "_tkinter.tix", "tkinter.filedialog", "_io",
-                        "pmlauncher.mdownloader", "pmlauncher.mevent", "pmlauncher.minecraft", "pmlauncher.pycraft",
-                        "pmlauncher.pycraft.authentication", "pmlauncher.mdownloader", "pmlauncher.mlaunch",
-                        "pmlauncher.mlaunchoption", "pmlauncher.mlibrary", "pmlauncher.mlogin",
-                        "pmlauncher.mprofile", "pmlauncher.mnative", "pmlauncher.mprofileinfo", "pmlauncher.mrule",
-                        "pmlauncher.pml", "pmlauncher.pycraft.networking", "pmlauncher.pycraft.compat",
-                        "pmlauncher.pycraft.exceptions"],
+                        "pkg_resources.py2_warn"],
         log_level="INFO", app_name="QMinecraftLauncher", clean=True, hide_console=False, one_file=False, uac_admin=False)
 
-    # TODO: Add needed pmlauncher modules
     compiler.reindex()
 
     # Get argument and command

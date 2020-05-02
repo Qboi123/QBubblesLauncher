@@ -1,27 +1,24 @@
 #! /usr/bin/python3
 #
 # Credits: Madpixel for the Minecraft font - https://www.dafont.com/minecrafter.font
-
-import yaml
 import json
 import os
 import platform
-import subprocess
 import tkinter.font
 from random import randint
-from time import sleep
+from threading import Thread
 from tkinter import Tk, Frame, Canvas, ttk, PhotoImage
 from typing import Optional, Dict, List
+from zipfile import ZipFile
 
-import PIL
-import PIL.Image
-import PIL.ImageTk
 import win32api
+import yaml
+from PIL import Image, ImageTk, ImageDraw, ImageFont
 
 DATA_FOLDER = None
 
 if platform.system().lower() == "windows":
-    DATA_FOLDER = f"/Users/{os.getlogin()}/AppData/Roaming/.qbubbles/"
+    DATA_FOLDER = f"C:/Users/{os.getlogin()}/AppData/Roaming/.qbubbles/"
 else:
     print("This program is currently Windows only")
     print("")
@@ -65,13 +62,91 @@ ENTRY_SEL_FG_DIS = "#7f7f7f"
 
 LAUNCHER_CFG = os.path.join(DATA_FOLDER, "launchercfg.json")
 
-from PIL import Image, ImageTk, ImageDraw, ImageFont
 
+# class Version(object):
+#     def __init__(self, version):
+#         self.version = version
+#         self.name = version
 
-class Version(object):
-    def __init__(self, version):
-        self.version = version
-        self.name = version
+class Download:
+    def __init__(self, url, fp="", is_temp=False):
+        self.isTemp = is_temp
+        self._url = url
+        self._fp = fp
+        self.fileTotalBytes = 1
+        self.fileDownloadedBytes = 0
+        self.downloaded: bool = False
+
+        Thread(None, self.download).start()
+
+    # noinspection PyUnboundLocalVariable,PyGlobalUndefined
+    def download(self):
+        import urllib.request
+        import os
+        import tempfile
+
+        self.downloaded = False
+
+        global active
+        global total
+        global spd
+        global h, m, s
+        global load
+        h = "23"
+        m = "59"
+        s = "59"
+        spd = 0
+        total = 0
+
+        dat = None
+
+        while dat is None:
+            # Get the total number of bytes of the file to download before downloading
+            u = urllib.request.urlopen(str(self._url))
+            if os.path.exists(self._fp):
+                os.remove(self._fp)
+            meta = u.info()
+            dat = meta["Content-Length"]
+        self.fileTotalBytes = int(dat)
+
+        data_blocks = []
+        total = 0
+
+        # Thread(None, lambda: speed(), "SpeedThread").start()
+
+        if self.isTemp:
+            with tempfile.TemporaryFile("ab+") as f:
+                # print(f.file)
+                while True:
+                    block = u.read(1024)
+                    data_blocks.append(block)
+                    self.fileDownloadedBytes += len(block)
+                    _hash = ((60 * self.fileDownloadedBytes) // self.fileTotalBytes)
+                    if not len(block):
+                        active = False
+                        break
+                    f.write(block)
+                f.close()
+        else:
+            with open(self._fp, "ab+") as f:
+                while True:
+                    block = u.read(1024)
+                    data_blocks.append(block)
+                    self.fileDownloadedBytes += len(block)
+                    _hash = ((60 * self.fileDownloadedBytes) // self.fileTotalBytes)
+                    if not len(block):
+                        active = False
+                        break
+                    f.write(block)
+                f.close()
+
+        # data = b''.join(data_blocks)
+        u.close()
+
+        if not os.path.exists(f"{DATA_FOLDER}/temp"):
+            os.makedirs(f"{DATA_FOLDER}/temp")
+
+        self.downloaded = True
 
 
 # noinspection PyAttributeOutsideInit,PyUnusedLocal
@@ -235,6 +310,7 @@ class ScrolledWindow(Frame):
         #     # self.canv.config(height=self.scrollwindow.winfo_reqheight())
 
 
+# noinspection PyPep8Naming,PyShadowingNames
 class CustomFontButton(ttk.Button):
     def __init__(self, master, text, width=None, foreground="black", truetype_font=None, font_path=None, size=None,
                  **kwargs):
@@ -288,7 +364,7 @@ class CustomFontButton(ttk.Button):
         ttk.Button.__init__(self, master, image=self._photoimage, **kwargs)
 
         self.truetype_font = truetype_font
-        # self.font_path = font_path
+        self.font_path = font_path
         self.fsize = size
         self.text = text
         self.foreground = foreground
@@ -369,7 +445,7 @@ class LauncherConfig(object):
         :param token:
         """
 
-        pass
+        self.token = token
 
 
 def get_resized_img(img, video_size):
@@ -412,9 +488,21 @@ def data_path(path: str):
     return os.path.join(DATA_FOLDER, path)
 
 
+class Version(object):
+    def __init__(self, versionid, name, prerelease: bool, downloadapp, downloaddata, downloadreqs, requirementsfile):
+        self.versionID = versionid
+        self.name = name
+        self.preRelease = prerelease
+        self.downloadApp = downloadapp
+        self.downloadData = downloaddata
+        self.downloadReqs = downloadreqs
+        self.requirementsFile = requirementsfile
+
+
 class VersionChecker(object):
     def __init__(self):
         self.url = "https://github.com/Qboi123/QBubblesLauncher/raw/master/versions.yml"
+        self.versions = []
 
     def download_versiondatabase(self):
         import urllib.request
@@ -431,9 +519,15 @@ class VersionChecker(object):
 
         db_dict = yaml.safe_load(req)
         print(f"DB_Dict: {db_dict}")
-        exit(-2)
+        self.versions = []
+        for versionid, data in db_dict.items():
+            self.versions.append(
+                Version(versionid, data["Name"], data["PreRelease"], data["DownloadApp"], data["DownloadData"],
+                        data["DownloadReqs"], data["RequirementsFile"]))
+        # exit(-2)
 
 
+# noinspection PyUnusedLocal
 class QLauncherWindow(Tk):
     def __init__(self):
         # Initialize window
@@ -453,13 +547,12 @@ class QLauncherWindow(Tk):
         print("Reading launcher config")
 
         # Reading launcher configuration.
-        tokens = {}
         if os.path.exists(LAUNCHER_CFG):
             with open(os.path.join(LAUNCHER_CFG)) as file:
                 self.launcherConfig = json.JSONDecoder().decode(file.read())
                 # print(self.launcherConfig["tokens"])
             if "tokens" in self.launcherConfig.keys():
-                tokens = self.launcherConfig["tokens"]
+                pass
         else:
             print("Launcher config doen't exists, creating a new one...")
             self.launcherConfig = {}
@@ -494,7 +587,6 @@ class QLauncherWindow(Tk):
         print("Getting versions")
 
         # Getting versions
-        from requests.exceptions import ConnectionError
 
         self.profiles = []
 
@@ -503,7 +595,11 @@ class QLauncherWindow(Tk):
 
         # Initialize versions
         # TODO: Add version loading here
-        # self.profiles: Optional[List[Version]] = None
+        self.versionChecker: VersionChecker = VersionChecker()
+        self.versionChecker.download_versiondatabase()
+        self.versions = self.versionChecker.versions
+
+        self.profiles: Optional[List[Version]] = self.versions
 
         # Define selected version
         self.selVersion = self.profiles[0] if len(self.profiles) > 0 else None
@@ -522,12 +618,12 @@ class QLauncherWindow(Tk):
         print("Setup UI...")
 
         # Initialize icons for the modloader and Minecraft
-        self.iconRift = PhotoImage(file="icons/rift.png")
-        self.iconForge = PhotoImage(file="icons/forge.png")
-        self.iconFabric = PhotoImage(file="icons/fabric.png")
-        self.iconClassic = PhotoImage(file="icons/classic.png")
-        self.iconOptifine = PhotoImage(file="icons/optifine.png")
-        self.iconMinecraft = PhotoImage(file="icons/minecraft.png")
+        # self.iconRift = PhotoImage(file="icons/rift.png")
+        # self.iconForge = PhotoImage(file="icons/forge.png")
+        # self.iconFabric = PhotoImage(file="icons/fabric.png")
+        # self.iconClassic = PhotoImage(file="icons/classic.png")
+        # self.iconOptifine = PhotoImage(file="icons/optifine.png")
+        # self.iconMinecraft = PhotoImage(file="icons/minecraft.png")
 
         # Initialize colors for the modloader and Minecraft
         # self.colorRift = "#D7D7D7"
@@ -597,8 +693,9 @@ class QLauncherWindow(Tk):
         self.cColors: Dict[Canvas, str] = {}
         self.tColors: Dict[Canvas, List[str]] = {}
 
-        self.versionChecker: VersionChecker = VersionChecker()
-        self.versionChecker.download_versiondatabase()
+        versions_dir = data_path("versions/")
+        if not os.path.exists(versions_dir):
+            os.makedirs(versions_dir)
 
         # Creates items in the versions menu.
         for profile in self.profiles:
@@ -606,8 +703,8 @@ class QLauncherWindow(Tk):
             self.canvass.append(Canvas(self.frames[-1], height=32, width=vlw, bg="#1e1e1e", highlightthickness=0, bd=0))
             self.canvass[-1].pack()
             self._id[self.canvass[-1]] = {}
-            self._id[self.canvass[-1]]["Icon"] = self.canvass[-1].create_image(0, 0, image=self.iconClassic,
-                                                                               anchor="nw")
+            # self._id[self.canvass[-1]]["Icon"] = self.canvass[-1].create_image(0, 0, image=self.iconClassic,
+            #                                                                    anchor="nw")
             color = self.colorClassic
             if profile not in os.listdir(versions_dir):
                 t_color = ["#434343", "#7f7f7f", "#a5a5a5"]
@@ -620,8 +717,8 @@ class QLauncherWindow(Tk):
             self.cColors[self.canvass[-1]] = color
             self.tColors[self.canvass[-1]] = t_color
             self.canvass[-1].bind("<ButtonRelease-1>",
-                                  lambda event, v=profile.name, c=self.canvass[-1]: self.select_version(c, v))
-            self.canvass[-1].bind("<Double-Button-1>", lambda event, v=profile.name: self.play_version(v))
+                                  lambda event, v=profile, c=self.canvass[-1]: self.select_version(c, v))
+            self.canvass[-1].bind("<Double-Button-1>", lambda event, v=profile: self.play_version(v))
             self.canvass[-1].bind("<Motion>", lambda event, c=self.canvass[-1]: self._on_canv_motion(c))
             self.canvass[-1].bind("<Leave>", lambda event, c=self.canvass[-1]: self._on_canv_leave(c))
             self.index[self.canvass[-1]] = i
@@ -792,9 +889,76 @@ class QLauncherWindow(Tk):
         :return:
         """
 
-        version = os.path.join(DATA_FOLDER, f"versions/{self.selVersion}/{self.selVersion}.pyz")
+        version = os.path.join(DATA_FOLDER, f"versions/{self.selVersion.versionID}/{self.selVersion.versionID}.pyz")
 
-        mc = subprocess.Popen("cmd /k python " + version, cwd=DATA_FOLDER, shell=True)
+        if not os.path.exists(version):
+            self.download(version, self.selVersion)
+
+        if " " in version:
+            version = '"' + version + '"'
+
+        # print(version)
+
+        os.chdir(DATA_FOLDER)
+
+        game_dir = DATA_FOLDER
+        if " " in game_dir:
+            game_dir = '"' + game_dir + '"'
+
+        # win32api.ShellExecute()
+
+        mc = os.system(" ".join(["cmd", "/c", "start", "python ", version, f"gameDir={game_dir}"]))
+
+    def download(self, version_path, version):
+        if not os.path.exists(os.path.split(os.path.join(DATA_FOLDER, version_path))[0]):
+            os.makedirs(os.path.split(os.path.join(DATA_FOLDER, version_path))[0])
+        print(os.path.split(os.path.join(DATA_FOLDER, version_path))[0])
+
+        download = Download(
+            version.downloadApp, os.path.join(DATA_FOLDER, version_path))
+        while not download.downloaded:
+            self.playBtn.configure(
+                text=f"App {int(download.fileDownloadedBytes / 1024 / 1024)}/"
+                     f"{int(download.fileTotalBytes / 1024 / 1024)}")
+            self.update()
+
+        download = Download(
+            version.downloadData, os.path.join(DATA_FOLDER, "temp", version.downloadData.split("/")[-1]))
+        while not download.downloaded:
+            self.playBtn.configure(
+                text=f"Data {int(download.fileDownloadedBytes / 1024 / 1024)}/"
+                     f"{int(download.fileTotalBytes / 1024 / 1024)}")
+            self.update()
+
+        download = Download(
+            version.downloadReqs, os.path.join(DATA_FOLDER, "temp", version.downloadReqs.split("/")[-1]))
+        while not download.downloaded:
+            self.playBtn.configure(
+                text=f"Reqs {int(download.fileDownloadedBytes / 1024 / 1024)}/"
+                     f"{int(download.fileTotalBytes / 1024 / 1024)}")
+            self.update()
+
+        self.playBtn.configure(text=f"Install Reqs")
+        self.update()
+        reqsfile = os.path.join(DATA_FOLDER, "temp", version.downloadReqs.split("/")[-1])
+        if " " in reqsfile:
+            reqsfile = '"' + reqsfile + '"'
+        pip_installer = Thread(target=lambda: os.system("pip install -r "+reqsfile), name="PipInstaller")
+        pip_installer.start()
+        while pip_installer.is_alive():
+            self.update()
+
+        self.playBtn.configure(text=f"Extract Data")
+        zipfile = ZipFile(os.path.join(DATA_FOLDER, "temp", version.downloadData.split("/")[-1]), "r")
+
+        dataextract_thread = Thread(
+            target=lambda: zipfile.extractall(
+                os.path.join(DATA_FOLDER, "data", version.versionID).replace('\\', "/")),
+            name="DataExtractThread")
+        dataextract_thread.start()
+        while dataextract_thread.is_alive():
+            self.update()
+        zipfile.close()
 
     def configure_event(self, evt):
         """
