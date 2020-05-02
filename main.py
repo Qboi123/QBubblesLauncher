@@ -2,10 +2,12 @@
 #
 # Credits: Madpixel for the Minecraft font - https://www.dafont.com/minecrafter.font
 
+import yaml
 import json
 import os
 import platform
 import subprocess
+import tkinter.font
 from random import randint
 from time import sleep
 from tkinter import Tk, Frame, Canvas, ttk, PhotoImage
@@ -19,7 +21,7 @@ import win32api
 DATA_FOLDER = None
 
 if platform.system().lower() == "windows":
-    DATA_FOLDER = f"/Users/{os.getlogin()}/AppData/Roaming/QBubbles/"
+    DATA_FOLDER = f"/Users/{os.getlogin()}/AppData/Roaming/.qbubbles/"
 else:
     print("This program is currently Windows only")
     print("")
@@ -254,9 +256,15 @@ class CustomFontButton(ttk.Button):
                 raise ValueError("Font path can't be None")
 
             # Initialize font
-            truetype_font = ImageFont.truetype(font_path, size)
+        print(tkinter.font.names())
+        # tkinter.font.nametofont("TkTextFont").cget("family")
+        # exit(1)
+
+        truetype_font = ImageFont.truetype(font_path, size)
 
         w, h = truetype_font.getsize(text)
+
+        h += 5
         # w, h = draw
         W = width + 20
         H = h + 20
@@ -280,7 +288,7 @@ class CustomFontButton(ttk.Button):
         ttk.Button.__init__(self, master, image=self._photoimage, **kwargs)
 
         self.truetype_font = truetype_font
-        self.font_path = font_path
+        # self.font_path = font_path
         self.fsize = size
         self.text = text
         self.foreground = foreground
@@ -404,18 +412,43 @@ def data_path(path: str):
     return os.path.join(DATA_FOLDER, path)
 
 
+class VersionChecker(object):
+    def __init__(self):
+        self.url = "https://github.com/Qboi123/QBubblesLauncher/raw/master/versions.yml"
+
+    def download_versiondatabase(self):
+        import urllib.request
+        import urllib.error
+        import http.client
+        req: http.client.HTTPResponse = urllib.request.urlopen(self.url)
+        # print(type(req))
+        # yml = req.read().decode("utf-8")
+        # print()
+        # print("====VERSION-DATABASE====")
+        # print(yml)
+        # print("==========END===========")
+        # print()
+
+        db_dict = yaml.safe_load(req)
+        print(f"DB_Dict: {db_dict}")
+        exit(-2)
+
+
 class QLauncherWindow(Tk):
     def __init__(self):
         # Initialize window
         super(QLauncherWindow, self).__init__()
 
         # Configure window
-        self.title("QMinecraft Launcher")
+        self.title("QBubbles Launcher")
         self.geometry("900x506")
         self.minsize(614, 400)
 
         # Makes closing the window, kills the process (or program)
         self.wm_protocol("WM_DELETE_WINDOW", lambda: os.kill(os.getpid(), 0))
+
+        if not os.path.exists(DATA_FOLDER):
+            os.makedirs(DATA_FOLDER)
 
         print("Reading launcher config")
 
@@ -445,13 +478,14 @@ class QLauncherWindow(Tk):
 
         # Get local versions.
         self.profiles = []
-        versions_dir = os.path.join(DATA_FOLDER, "versions")
-        for item in os.listdir(os.path.join(DATA_FOLDER, "versions")):
-            _item_dir = os.path.join(versions_dir, item)
-            if os.path.isdir(_item_dir):
-                if os.path.exists(os.path.join(_item_dir, item + ".jar")):
-                    if os.path.exists(os.path.join(_item_dir, item + ".json")):
-                        self.profiles.append(item)
+        if os.path.exists(os.path.join(DATA_FOLDER, "versions")):
+            versions_dir = os.path.join(DATA_FOLDER, "versions")
+            for item in os.listdir(os.path.join(DATA_FOLDER, "versions")):
+                _item_dir = os.path.join(versions_dir, item)
+                if os.path.isdir(_item_dir):
+                    if os.path.exists(os.path.join(_item_dir, item + ".jar")):
+                        if os.path.exists(os.path.join(_item_dir, item + ".json")):
+                            self.profiles.append(item)
 
         # print(self.profiles)
 
@@ -462,27 +496,24 @@ class QLauncherWindow(Tk):
         # Getting versions
         from requests.exceptions import ConnectionError
 
-        try:
-            self.profiles = pml.updateProfiles()
-        except ConnectionError:
-            self.profiles = []
+        self.profiles = []
 
         # Initialize game folder
-        pml.initialize(DATA_FOLDER)
+        # pml.initialize(DATA_FOLDER)
 
         # Initialize versions
         # TODO: Add version loading here
-        self.profiles: Optional[List[Version]] = None
+        # self.profiles: Optional[List[Version]] = None
 
         # Define selected version
-        self.selVersion = self.profiles[0].name
+        self.selVersion = self.profiles[0] if len(self.profiles) > 0 else None
 
         # Define profile name
         self.profilename = win32api.GetUserNameEx(3)
 
         # Update profile name and UUID.
         self.launcherConfig["profilename"] = self.profilename
-        self.launcherConfig["uuid"] = self.session.uuid
+        # self.launcherConfig["uuid"] = self.session.uuid
         self.save_launchercfg()
 
         # Setup theme
@@ -499,33 +530,35 @@ class QLauncherWindow(Tk):
         self.iconMinecraft = PhotoImage(file="icons/minecraft.png")
 
         # Initialize colors for the modloader and Minecraft
-        self.colorRift = "#D7D7D7"
-        self.colorForge = "#3E5482"
-        self.colorFabric = "#BFB49C"
+        # self.colorRift = "#D7D7D7"
+        # self.colorForge = "#3E5482"
+        # self.colorFabric = "#BFB49C"
         self.colorClassic = "#7A7A7A"
-        self.colorOptifine = "#AD393B"
-        self.colorMinecraft = "#A8744F"
+        # self.colorOptifine = "#AD393B"
+        # self.colorMinecraft = "#A8744F"
 
-        self._backgroundImage: PIL.Image.Image = PIL.Image.open("background.png")
-        self._tmp_img_tk = PIL.ImageTk.PhotoImage(self._backgroundImage)
+        # self._backgroundImage: PIL.Image.Image = PIL.Image.open("background.png")
+        # self._tmp_img_tk = PIL.ImageTk.PhotoImage(self._backgroundImage)
 
         self.rootFrame = Frame(self, bg="#282828")
 
         # Version list width
         vlw = 300
 
+        self.online = True
+
         # Initialize left panel
         self.leftPanel = Frame(self.rootFrame, height=75, width=vlw)
 
         # Initialize user info and status
         self.userFrame = Canvas(self.leftPanel, bg="#282828", height=75, highlightthickness=0, width=vlw)
-        self.userNameText = self.userFrame.create_text(10, 10, text=self.session.username,
+        self.userNameText = self.userFrame.create_text(10, 10, text=self.launcherConfig["profilename"],
                                                        font=("helvetica", 10, "bold"), fill="white", anchor="nw")
         self.userStatusIcon = self.userFrame.create_rectangle(11, 41, 19, 49,
-                                                              fill="#008542" if self.auth_token is not None else "#434343",
-                                                              outline=COL_PLAY_BTN if self.auth_token is not None else "#434343")
+                                                              fill="#008542" if self.online else "#434343",
+                                                              outline=COL_PLAY_BTN if self.online else "#434343")
         self.userStatusText = self.userFrame.create_text(25, 45,
-                                                         text="Online" if self.auth_token is not None else "Offline",
+                                                         text="Online" if self.online else "Offline",
                                                          fill="#a5a5a5", anchor="w", font=("helvetica", 10))
         self.userFrame.pack(fill="x")
 
@@ -564,38 +597,19 @@ class QLauncherWindow(Tk):
         self.cColors: Dict[Canvas, str] = {}
         self.tColors: Dict[Canvas, List[str]] = {}
 
+        self.versionChecker: VersionChecker = VersionChecker()
+        self.versionChecker.download_versiondatabase()
+
         # Creates items in the versions menu.
         for profile in self.profiles:
             self.frames.append(Frame(self.frame_sw, height=32, width=vlw, bd=0))
             self.canvass.append(Canvas(self.frames[-1], height=32, width=vlw, bg="#1e1e1e", highlightthickness=0, bd=0))
             self.canvass[-1].pack()
             self._id[self.canvass[-1]] = {}
-            if "rift" in profile.name.lower():
-                self._id[self.canvass[-1]]["Icon"] = self.canvass[-1].create_image(0, 0, image=self.iconRift,
-                                                                                   anchor="nw")
-                color = self.colorRift
-            elif "forge" in profile.name.lower():
-                self._id[self.canvass[-1]]["Icon"] = self.canvass[-1].create_image(0, 0, image=self.iconForge,
-                                                                                   anchor="nw")
-                color = self.colorForge
-            elif "fabric" in profile.name.lower():
-                self._id[self.canvass[-1]]["Icon"] = self.canvass[-1].create_image(0, 0, image=self.iconFabric,
-                                                                                   anchor="nw")
-                color = self.colorFabric
-            elif "optifine" in profile.name.lower():
-                self._id[self.canvass[-1]]["Icon"] = self.canvass[-1].create_image(0, 0, image=self.iconOptifine,
-                                                                                   anchor="nw")
-                color = self.colorOptifine
-            elif profile.name.startswith("a") or profile.name.startswith("b") or profile.name.startswith(
-                    "c") or profile.name.startswith("rd") or profile.name.startswith("inf"):
-                self._id[self.canvass[-1]]["Icon"] = self.canvass[-1].create_image(0, 0, image=self.iconClassic,
-                                                                                   anchor="nw")
-                color = self.colorClassic
-            else:
-                self._id[self.canvass[-1]]["Icon"] = self.canvass[-1].create_image(0, 0, image=self.iconMinecraft,
-                                                                                   anchor="nw")
-                color = self.colorMinecraft
-            if profile.name not in os.listdir(versions_dir):
+            self._id[self.canvass[-1]]["Icon"] = self.canvass[-1].create_image(0, 0, image=self.iconClassic,
+                                                                               anchor="nw")
+            color = self.colorClassic
+            if profile not in os.listdir(versions_dir):
                 t_color = ["#434343", "#7f7f7f", "#a5a5a5"]
                 color = "#434343"
             else:
@@ -618,20 +632,25 @@ class QLauncherWindow(Tk):
         self.leftPanel.pack(side="left", fill="y")
 
         self.rightPanels = Frame(self.rootFrame, bg="#282828")
-        self.canvas = Canvas(self.rightPanels, bg="#282828", highlightthickness=0)
-        self.background = self.canvas.create_image(0, 0, anchor="nw", image=self._tmp_img_tk)
+        self.canvas = Canvas(self.rightPanels, bg="#006060", highlightthickness=0)
+        for _ in range(2500):
+            x = randint(0, 1920*4)
+            y = randint(0, 1080*4)
+            r = randint(21, 80) / 2
+            self.canvas.create_oval(x - r, y - r, x + r, y + r, outline="white")
+        # self.background = self.canvas.create_image(0, 0, anchor="nw", image=self._tmp_img_tk)
         self.canvas.pack(fill="both", expand=True)
         self.bottomPanel = Frame(self.rightPanels, bg="#262626", height=60)
         self.playBtn = CustomFontButton(self.rightPanels, width=200,
-                                        text="PLAY" if self.auth_token is not None else "PLAY OFFLINE",
-                                        font_path="Minecrafter.Reg.ttf", foreground="white", size=24, command=self.play)
+                                        text="PLAY" if self.online else "PLAY OFFLINE",
+                                        font_path="Roboto-Regular.ttf", foreground="white", size=30, command=self.play)
         self.playBtn.place(x=self.bottomPanel.winfo_width() / 2, y=self.bottomPanel.winfo_y() + 10, anchor="n")
         self.bottomPanel.pack(side="bottom", fill="x")
         self.rightPanels.pack(side="right", fill="both", expand=True)
         self.rootFrame.pack(side="left", fill="both", expand=True)
 
         # Event bindings
-        self.canvas.bind("<Configure>", self.configure_event)
+        # self.canvas.bind("<Configure>", self.configure_event)
         self.bottomPanel.bind("<Configure>", self.on_bottompanel_configure)
 
         self.wm_attributes("-fullscreen", self.launcherConfig["fullscreen"])
@@ -773,8 +792,9 @@ class QLauncherWindow(Tk):
         :return:
         """
 
-        # Run the game, using java.
-        mc = subprocess.Popen("cmd /k python " + args, cwd=pml.getGamePath(), shell=True)
+        version = os.path.join(DATA_FOLDER, f"versions/{self.selVersion}/{self.selVersion}.pyz")
+
+        mc = subprocess.Popen("cmd /k python " + version, cwd=DATA_FOLDER, shell=True)
 
     def configure_event(self, evt):
         """
@@ -784,17 +804,17 @@ class QLauncherWindow(Tk):
         :return:
         """
         # Closes previous opened image
-        self._backgroundImage.close()
+        # self._backgroundImage.close()
 
         # Open image and resize it
-        self._backgroundImage: PIL.Image.Image = PIL.Image.open("background.png")
-        self._backgroundImage = get_resized_img(self._backgroundImage, (evt.width, evt.height))
+        # self._backgroundImage: PIL.Image.Image = PIL.Image.open("background.png")
+        # self._backgroundImage = get_resized_img(self._backgroundImage, (evt.width, evt.height))
 
         # Convert to tkinter.PhotoImage(...)
-        self._tmp_img_tk = PIL.ImageTk.PhotoImage(self._backgroundImage)
+        # self._tmp_img_tk = PIL.ImageTk.PhotoImage(self._backgroundImage)
 
         # Update background
-        self.canvas.itemconfig(self.background, image=self._tmp_img_tk)
+        # self.canvas.itemconfig(self.background, image=self._tmp_img_tk)
         self.canvas.update()
 
     @staticmethod

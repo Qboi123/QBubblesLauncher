@@ -1,2 +1,5 @@
-Pillow
-pyinstaller
+Pillow~=7.1.2
+
+PyYAML~=5.3.1
+future~=0.18.2
+pywin32~=227

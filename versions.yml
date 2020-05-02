@@ -1,5 +1,7 @@
 1.0-alpha1:
   Name: "1.0 Alpha 1"
   PreRelease: true
-  DownloadURL: "https://github.com/Qboi123/QBubbles/archive/1.0-alpha1.zip"
+  DownloadApp: "https://github.com/Qboi123/QBubbles/releases/download/1.0-alpha1/QBubbles-1.0_alpha1.pyz"
+  DownloadData: "https://github.com/Qboi123/QBubbles/releases/download/1.0-alpha1/QBubbles-1.0_alpha1-data.zip"
+  DownloadReqs: "https://github.com/Qboi123/QBubbles/releases/download/1.0-alpha1/requirements.txt"
   RequirementsFile: "requirements.txt"
