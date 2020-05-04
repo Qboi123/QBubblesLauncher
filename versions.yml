@@ -5,3 +5,10 @@
   DownloadData: "https://github.com/Qboi123/QBubbles/releases/download/1.0-alpha1/QBubbles-1.0_alpha1-data.zip"
   DownloadReqs: "https://github.com/Qboi123/QBubbles/releases/download/1.0-alpha1/requirements.txt"
   RequirementsFile: "requirements.txt"
+1.0-alpha2:
+  Name: "1.0 Alpha 2"
+  PreRelease: true
+  DownloadApp: "https://github.com/Qboi123/QBubbles/releases/download/1.0-alpha2/QBubbles-1.0_alpha2.pyz"
+  DownloadData: "https://github.com/Qboi123/QBubbles/releases/download/1.0-alpha2/QBubbles-1.0_alpha2-data.zip"
+  DownloadReqs: "https://github.com/Qboi123/QBubbles/releases/download/1.0-alpha2/requirements.txt"
+  RequirementsFile: "requirements.txt"
